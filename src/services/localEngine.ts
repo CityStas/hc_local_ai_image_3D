@@ -55,6 +55,34 @@ declare global {
       }>;
       upscaleAbort: () => Promise<boolean>;
       onUpscaleProgress: (cb: (payload: { progress: number; text: string; phase?: string; scale?: number }) => void) => () => void;
+      comfyStatus: () => Promise<{
+        available: boolean;
+        root: string | null;
+        python: string | null;
+        port: number;
+        running: boolean;
+        busy: boolean;
+        vramMode: string;
+        workflows: Array<{ id: string; title: string; kind: string }>;
+      }>;
+      comfyPreload: () => Promise<{ ok: boolean; error?: string }>;
+      comfyStop: () => Promise<boolean>;
+      comfyRun: (options: {
+        workflowId: string;
+        imageDataUrls?: string[];
+        imageDataUrl?: string;
+        prompt?: string;
+        params?: Record<string, unknown>;
+      }) => Promise<{
+        ok: boolean;
+        aborted?: boolean;
+        error?: string;
+        files?: Array<{ name: string; mime: string; base64: string; dataUrl: string | null; kind: string }>;
+        elapsedMs?: number;
+        promptId?: string;
+      }>;
+      comfyAbort: () => Promise<boolean>;
+      onComfyProgress: (cb: (payload: { progress?: number; text?: string; phase?: string; step?: number; steps?: number; node?: string }) => void) => () => void;
     };
   }
 }

@@ -11,7 +11,7 @@ import {
   ImageIcon,
   Eye
 } from 'lucide-react';
-import { Message, ModelInfo, EngineStatus, PersonaPreset } from '../types';
+import { Message, ModelInfo, EngineStatus, PersonaPreset, Comfy3dConfig } from '../types';
 import { getImageModel } from '../data/imageModels';
 import { VLM_MODE_CHIPS, getVlmModel, type VlmMode, type VlmModelId } from '../data/vlmModels';
 import { MessageItem } from './MessageItem';
@@ -43,6 +43,8 @@ interface ChatAreaProps {
   onSetScenePosition?: (p: 'left' | 'center' | 'right') => void;
   onVlmChip?: (mode: VlmMode) => void;
   vlmModelId?: VlmModelId;
+  /** Настройки 3D (воркфлоу/разрешение/шаги/сид) — прокидываются в карточку картинки. */
+  comfy3d?: Comfy3dConfig;
 }
 
 export function ChatArea({
@@ -71,6 +73,7 @@ export function ChatArea({
   onSetScenePosition,
   onVlmChip,
   vlmModelId,
+  comfy3d,
 }: ChatAreaProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -129,6 +132,7 @@ export function ChatArea({
                 isLast={idx === messages.length - 1}
                 isGenerating={isGenerating}
                 soundEnabled={soundEnabled}
+                comfy3d={comfy3d}
                 onRegenerate={
                   idx === messages.length - 1 && message.role === 'assistant'
                     ? () => {

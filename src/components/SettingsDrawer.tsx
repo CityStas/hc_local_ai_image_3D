@@ -9,12 +9,18 @@ import {
   RotateCcw, 
   Check, 
   ShieldCheck,
-  ImageIcon
+  ImageIcon,
+  Palette,
+  Moon,
+  Sun,
+  Box,
+  Layers
 } from 'lucide-react';
-import { InferenceConfig, PersonaPreset, SdBackendStatus } from '../types';
+import { InferenceConfig, PersonaPreset, SdBackendStatus, UiTheme, Comfy3dConfig } from '../types';
 import { MAX_OUTPUT_TOKENS, DEFAULT_PERSONA, PERSONA_PRESETS } from '../data/personas';
 import { DEFAULT_IMAGE_CONFIG } from '../services/imageEngine';
 import { IMAGE_MODEL_NAME, IMAGE_MODEL_TAGLINE, IMAGE_USER_HINTS, IMAGE_NEGATIVE_DEFAULT } from '../data/imagePrompt';
+import { DEFAULT_COMFY3D, COMFY3D_WORKFLOWS, COMFY3D_RESOLUTIONS } from '../data/comfy3d';
 import { soundEffects } from '../utils/audioSynth';
 
 interface SettingsDrawerProps {
@@ -71,8 +77,17 @@ export function SettingsDrawer({
       streamThinking: true,
       soundVolume: 0.2,
       imageGen: { ...DEFAULT_IMAGE_CONFIG },
+      theme: 'neon',
+      comfy3d: { ...DEFAULT_COMFY3D },
     });
   };
+
+  // Тема: старые конфиги без поля → neon.
+  const theme: UiTheme = config.theme === 'minimal' ? 'minimal' : 'neon';
+  // Настройки 3D: старые конфиги → значения по умолчанию.
+  const c3d: Comfy3dConfig = config.comfy3d ?? DEFAULT_COMFY3D;
+  const updateC3d = (patch: Partial<Comfy3dConfig>) =>
+    onChangeConfig({ ...config, comfy3d: { ...c3d, ...patch } });
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
@@ -103,6 +118,47 @@ export function SettingsDrawer({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {/* Тема интерфейса */}
+          <div className="space-y-2.5">
+            <label className="text-xs font-bold text-slate-300 font-mono flex items-center gap-1.5 uppercase">
+              <Palette className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Тема интерфейса</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: 'neon' as UiTheme, title: 'Неон', tagline: 'Свечение и стекло', Icon: Sparkles },
+                { id: 'minimal' as UiTheme, title: 'Минимализм', tagline: 'Плоско, без свечения', Icon: Moon },
+              ]).map(({ id, title, tagline, Icon }) => {
+                const isActive = theme === id;
+                return (
+                  <div
+                    key={id}
+                    onClick={() => {
+                      if (soundEnabled) soundEffects.click();
+                      onChangeConfig({ ...config, theme: id });
+                    }}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      isActive
+                        ? 'bg-cyan-500/10 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
+                        : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.05] text-slate-400'
+                    }`}
+                  >
+                    <div className="text-xs font-bold font-['Syne'] flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Icon className="w-3.5 h-3.5" />
+                        {title}
+                      </span>
+                      {isActive && <Check className="w-3 h-3 text-cyan-400" />}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-1 line-clamp-1 font-sans">
+                      {tagline}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Persona Presets */}
           <div className="space-y-2.5">
             <label className="text-xs font-bold text-slate-300 font-mono flex items-center gap-1.5 uppercase">
@@ -388,6 +444,121 @@ export function SettingsDrawer({
             <p className="text-[10px] text-slate-500 font-sans">
               Команды: <code className="text-purple-300">/image</code>, <code className="text-purple-300">/нарисуй</code> — или 🖼. Превью по шагам.
             </p>
+          </div>
+
+          {/* 3D (ComfyUI) */}
+          <div className="space-y-4 pt-2 border-t border-white/[0.06]">
+            <label className="text-xs font-bold text-slate-300 font-mono flex items-center gap-1.5 uppercase">
+              <Box className="w-3.5 h-3.5 text-purple-400" />
+              <span>3D-генерация (ComfyUI)</span>
+            </label>
+            <p className="text-[10px] text-slate-500 font-sans leading-relaxed">
+              Image-to-3D и удаление фона идут через встроенный ComfyUI. Первый холодный
+              старт ~30–90 с. Настройки применяются кнопкой «В 3D» под картинкой.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-xs font-mono text-slate-300 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-purple-400" />
+                Воркфлоу
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {COMFY3D_WORKFLOWS.map((w) => {
+                  const isActive = c3d.workflowId === w.id;
+                  return (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => {
+                        if (soundEnabled) soundEffects.click();
+                        updateC3d({ workflowId: w.id });
+                      }}
+                      className={`px-2 py-2 rounded-lg border text-left cursor-pointer transition-all ${
+                        isActive
+                          ? 'bg-purple-500/15 border-purple-400/40 text-purple-200'
+                          : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      <div className="text-xs font-bold font-mono">{w.title}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{w.tagline}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-300">Разрешение препроцессинга</span>
+                <span className="text-purple-300 font-bold">{c3d.resolution}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {COMFY3D_RESOLUTIONS.map((res) => (
+                  <button
+                    key={res}
+                    type="button"
+                    onClick={() => updateC3d({ resolution: res })}
+                    className={`px-2 py-1.5 rounded-lg border text-xs font-mono cursor-pointer transition-all ${
+                      c3d.resolution === res
+                        ? 'bg-purple-500/15 border-purple-400/40 text-purple-200'
+                        : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    {res}
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-600 font-mono">
+                <span>512 — быстрее</span>
+                <span>1024 — детальнее</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-300">Шаги (steps)</span>
+                <span className="text-purple-300 font-bold">{c3d.steps}</span>
+              </div>
+              <input
+                type="range"
+                min="8"
+                max="30"
+                step="1"
+                value={c3d.steps}
+                onChange={(e) => updateC3d({ steps: parseInt(e.target.value) })}
+                className="w-full accent-purple-400 bg-white/[0.08] h-1.5 rounded-lg cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-slate-300">Seed 3D (−1 = случайный)</label>
+              <input
+                type="number"
+                value={c3d.seed}
+                onChange={(e) => updateC3d({ seed: parseInt(e.target.value) || -1 })}
+                className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-purple-500/40 rounded-xl p-2 text-xs text-slate-200 font-mono focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs font-bold text-slate-300 font-mono">Убирать фон перед 3D</div>
+                <div className="text-[10px] text-slate-500">
+                  {c3d.removeBgFirst
+                    ? 'Сначала birefnet → чище силуэт модели'
+                    : 'Гнать по исходной картинке как есть'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateC3d({ removeBgFirst: !c3d.removeBgFirst })}
+                className={`w-10 h-6 rounded-full transition-colors p-1 flex items-center cursor-pointer ${
+                  c3d.removeBgFirst ? 'bg-purple-500 justify-end' : 'bg-white/[0.1] justify-start'
+                }`}
+              >
+                <span className="w-4 h-4 rounded-full bg-white shadow-sm" />
+              </button>
+            </div>
           </div>
 
           {/* Toggles */}

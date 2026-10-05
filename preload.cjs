@@ -71,4 +71,16 @@ contextBridge.exposeInMainWorld('nexus', {
     ipcRenderer.on('upscale:progress', listener);
     return () => ipcRenderer.removeListener('upscale:progress', listener);
   },
+
+  // ComfyUI — удаление фона и 3D-генерация (sidecar-сервер на :8188)
+  comfyStatus: () => ipcRenderer.invoke('comfy:status'),
+  comfyPreload: () => ipcRenderer.invoke('comfy:preload'),
+  comfyStop: () => ipcRenderer.invoke('comfy:stop'),
+  comfyRun: (options) => ipcRenderer.invoke('comfy:run', options),
+  comfyAbort: () => ipcRenderer.invoke('comfy:abort'),
+  onComfyProgress: (callback) => {
+    const listener = (_e, payload) => callback(payload);
+    ipcRenderer.on('comfy:progress', listener);
+    return () => ipcRenderer.removeListener('comfy:progress', listener);
+  },
 });

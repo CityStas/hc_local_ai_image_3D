@@ -26,6 +26,7 @@ import {
 } from './services/imageEngine';
 import { visionAnalysisService } from './services/vlmEngine';
 import { DEFAULT_VLM_MODEL_ID, type VlmMode, type VlmModelId } from './data/vlmModels';
+import { DEFAULT_COMFY3D } from './data/comfy3d';
 import { IMAGE_MODEL_NAME, IMAGE_USER_HINTS } from './data/imagePrompt';
 import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL_ID, getImageModel, type ImageModelId } from './data/imageModels';
 import { ImageModelPicker } from './components/ImageModelPicker';
@@ -53,6 +54,8 @@ const DEFAULT_CONFIG: InferenceConfig = {
   streamThinking: true,
   soundVolume: 0.2,
   imageGen: { ...DEFAULT_IMAGE_CONFIG },
+  theme: 'neon',
+  comfy3d: { ...DEFAULT_COMFY3D },
 };
 
 export default function App() {
@@ -129,11 +132,20 @@ export default function App() {
         if (parsed.maxTokens < 512) parsed.maxTokens = DEFAULT_CONFIG.maxTokens;
         if (!parsed.imageGen) parsed.imageGen = { ...DEFAULT_IMAGE_CONFIG };
         else parsed.imageGen = { ...DEFAULT_IMAGE_CONFIG, ...parsed.imageGen };
+        if (!parsed.comfy3d) parsed.comfy3d = { ...DEFAULT_COMFY3D };
+        else parsed.comfy3d = { ...DEFAULT_COMFY3D, ...parsed.comfy3d };
+        if (parsed.theme !== 'minimal') parsed.theme = 'neon';
         return parsed;
       }
     } catch {}
     return DEFAULT_CONFIG;
   });
+
+  // Тема применяется классом на <html> — см. .theme-minimal в index.css.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('theme-minimal', config.theme === 'minimal');
+  }, [config.theme]);
 
   const [webGpuState, setWebGpuState] = useState<{ supported: boolean; adapterName?: string }>({
     supported: false,
@@ -1050,6 +1062,7 @@ export default function App() {
           scenePosition={scenePosition}
           onSetScenePosition={(p) => setScenePosition(p)}
           vlmModelId={vlmModelId}
+          comfy3d={config.comfy3d}
         />
       </div>
 

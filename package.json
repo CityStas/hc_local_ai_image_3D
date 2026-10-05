@@ -30,11 +30,13 @@
   },
   "dependencies": {
     "node-llama-cpp": "^3.0.0",
-    "stable-diffusion-cpp-node-api": "^0.12.2"
+    "stable-diffusion-cpp-node-api": "^0.12.2",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",
     "@types/node": "^22.14.0",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^5.0.4",
     "cross-env": "^7.0.3",
     "electron": "^30.0.0",
@@ -64,11 +66,13 @@
     ],
     "files": [
       "dist/**/*",
+      "workflows/**/*",
       "main.cjs",
       "preload.cjs",
       "sdEngine.cjs",
       "vlmEngine.cjs",
       "upscaleEngine.cjs",
+      "comfyEngine.cjs",
       "prefetch.cjs",
       "scripts/prefetch-worker.cjs",
       "node_modules/node-llama-cpp/**/*",
@@ -80,31 +84,43 @@
       {
         "from": "node_modules/electron/dist/resources/qwen-3.5-0.8b",
         "to": "qwen-3.5-0.8b",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "node_modules/electron/dist/resources/z-image-turbo",
         "to": "z-image-turbo",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "node_modules/electron/dist/resources/MiniCPM-V-2_6-Q4_K_M",
         "to": "MiniCPM-V-2_6-Q4_K_M",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "node_modules/electron/dist/resources/Real-ESRGAN-ncnn-vulkan",
         "to": "Real-ESRGAN-ncnn-vulkan",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "llama-mtmd",
         "to": "llama-mtmd",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
-      "target": ["dir"]
+      "target": [
+        "dir"
+      ]
     },
     "portable": {
       "artifactName": "HC-AI-portable.${ext}"

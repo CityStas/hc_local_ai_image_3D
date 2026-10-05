@@ -1,0 +1,83 @@
+{
+  "_comment": "Реестр ComfyUI-воркфлоу для comfyEngine.cjs. Файлы - в API-формате (плоский граф class_type/inputs), готовы к POST /prompt без флаттенинга. imageNodes — узлы LoadImage, куда заливается входная картинка (по порядку из options.imageDataUrls). promptNode/promptInput — куда писать текст. drop — узлы, которые выбрасываются в headless-режиме (превью/сравнение). outputs — узлы, чьи файлы забираются через /view. paramMap — раскрытие логических параметров (resolution/steps/seed/removeBgFirst) в конкретные node.input; значения-касты: num|str|bool.",
+  "workflows": [
+    {
+      "id": "bg_remove",
+      "title": "Удаление фона",
+      "kind": "image",
+      "file": "bg_remove.json",
+      "imageNodes": ["1"],
+      "outputs": [{ "node": "6", "type": "image" }],
+      "timeoutMs": 300000
+    },
+    {
+      "id": "remove_bg_qwen",
+      "title": "Удаление фона (Qwen-Edit)",
+      "kind": "image",
+      "file": "remove_bg.json",
+      "imageNodes": ["470"],
+      "promptNode": "459.474",
+      "promptInput": "prompt",
+      "drop": ["472"],
+      "outputs": [{ "node": "461", "type": "image" }],
+      "timeoutMs": 600000
+    },
+    {
+      "id": "color_swap",
+      "title": "Смена цвета одежды",
+      "kind": "image",
+      "file": "color_swap.json",
+      "imageNodes": ["470"],
+      "promptNode": "459.474",
+      "promptInput": "prompt",
+      "drop": ["472"],
+      "outputs": [{ "node": "461", "type": "image" }],
+      "timeoutMs": 600000
+    },
+    {
+      "id": "edit",
+      "title": "Правка по референсу",
+      "kind": "image",
+      "file": "edit.json",
+      "imageNodes": ["470", "475"],
+      "promptNode": "459.474",
+      "promptInput": "prompt",
+      "drop": ["472"],
+      "outputs": [{ "node": "461", "type": "image" }],
+      "timeoutMs": 600000
+    },
+    {
+      "id": "trellis2_image_to_3d",
+      "title": "3D из картинки (Trellis2 → GLB)",
+      "kind": "3d",
+      "file": "trellis2_image_to_3d.json",
+      "imageNodes": ["122"],
+      "outputs": [{ "node": "322", "type": "model" }],
+      "timeoutMs": 1200000,
+      "paramMap": {
+        "resolution": { "312.width": "num", "312.height": "num" },
+        "steps": { "3.steps": "num", "12.steps": "num", "18.steps": "num", "23.steps": "num" },
+        "seed": { "3.seed": "num", "12.seed": "num", "18.seed": "num", "23.seed": "num" },
+        "removeBgFirst": { "248.switch": "bool" }
+      }
+    },
+    {
+      "id": "triposplat_image_to_3d",
+      "title": "3D из картинки (TripoSplat → GLB)",
+      "kind": "3d",
+      "file": "triposplat_image_to_3d.json",
+      "imageNodes": ["99"],
+      "outputs": [
+        { "node": "51", "type": "model" },
+        { "node": "67", "type": "model" }
+      ],
+      "timeoutMs": 1200000,
+      "paramMap": {
+        "resolution": { "88.2.size": "num" },
+        "steps": { "88.6.steps": "num" },
+        "seed": { "88.6.seed": "num" },
+        "removeBgFirst": { "88.35.switch": "bool" }
+      }
+    }
+  ]
+}

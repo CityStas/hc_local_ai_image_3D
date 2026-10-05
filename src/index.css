@@ -111,3 +111,100 @@
 .no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* =====================================================================
+   Монохромный минимализм (theme=minimal) — строго чёрно-белый, серый
+   вместо белого. Акценты в разметке заданы литералами Tailwind
+   (text-[#00f2ff] и т.п.), поэтому гасим их селекторами по классу.
+
+   ВАЖНО (исправлено): раньше стоял один селектор [class*="bg-[#00f2ff]"],
+   который матчит И `bg-[#00f2ff]/10`. Он делал полупрозрачные плашки
+   СПЛОШНЫМИ (#7f9db1), а текст оставался #8fb0c4 → надпись сливалась с
+   фоном (чип персоны «Творец» и все плашки на этом классе).
+   Теперь сплошные и полупрозрачные заливки разведены: [class*=.../] и
+   [class*=bg-cyan-4|5] → полупрозрачный серый, [class~=...] → светло-серый.
+   ===================================================================== */
+.theme-minimal {
+  --neon-cyan: #d4d4d4;
+  --neon-purple: #d4d4d4;
+  --glass: rgba(14, 14, 14, 0.88);
+  --bg-dark: #0a0a0a;
+}
+
+/* Никакого свечения */
+.theme-minimal [class*="shadow-["] {
+  box-shadow: none !important;
+}
+.theme-minimal .glow-cyan-text,
+.theme-minimal .glow-purple-text {
+  text-shadow: none;
+}
+
+/* Фон — плоский, без анимированной «сетки» и без цвета */
+.theme-minimal .animate-fluid-mesh,
+.theme-minimal .animate-fluid-mesh-reverse {
+  animation: none;
+  opacity: 0.22;
+  filter: grayscale(1);
+}
+.theme-minimal .hologram-shimmer {
+  background: none;
+  animation: none;
+}
+
+/* --- Текст акцентов → светло-серый (контраст на тёмном) --- */
+.theme-minimal [class*="text-[#00f2ff]"],
+.theme-minimal [class*="text-[#7000ff]"],
+.theme-minimal [class*="text-cyan-"],
+.theme-minimal [class*="text-purple-"] {
+  color: #d4d4d4 !important;
+}
+
+/* --- ПОЛУПРОЗРАЧНЫЕ подложки (bg-…/10, /15, /20) → нейтральный серый.
+       Ловим по подстроке: точный класс (без слэша) перебивается правилом ниже. --- */
+.theme-minimal [class*="bg-[#00f2ff]"],
+.theme-minimal [class*="bg-[#7000ff]"],
+.theme-minimal [class*="bg-cyan-4"],
+.theme-minimal [class*="bg-cyan-5"],
+.theme-minimal [class*="bg-purple-4"],
+.theme-minimal [class*="bg-purple-5"] {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* --- Границы акцентов → серые --- */
+.theme-minimal [class*="border-[#00f2ff]"],
+.theme-minimal [class*="border-[#7000ff]"],
+.theme-minimal [class*="border-cyan-"],
+.theme-minimal [class*="border-purple-"] {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+/* --- СПЛОШНЫЕ акцентные заливки → светло-серый (идёт ПОСЛЕ полупрозрачных,
+       поэтому для точного класса выигрывает) --- */
+.theme-minimal [class~="bg-[#00f2ff]"],
+.theme-minimal [class~="bg-[#7000ff]"],
+.theme-minimal [class~="bg-cyan-400"],
+.theme-minimal [class~="bg-cyan-500"],
+.theme-minimal [class~="bg-purple-400"],
+.theme-minimal [class~="bg-purple-500"] {
+  background-color: #cfcfcf !important;
+}
+/* Текст поверх сплошной светлой заливки — чёрный. */
+.theme-minimal [class~="text-black"],
+.theme-minimal [class~="text-slate-900"] {
+  color: #0a0a0a !important;
+}
+
+/* Слайдеры (accent-color) — иначе бегунки остаются неоновыми */
+.theme-minimal [class*="accent-cyan-"],
+.theme-minimal [class*="accent-purple-"] {
+  accent-color: #9a9a9a !important;
+}
+
+/* Меньше «стекла» и градиентов */
+.theme-minimal [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+}
+.theme-minimal [class*="bg-gradient-to"] {
+  background-image: none !important;
+}

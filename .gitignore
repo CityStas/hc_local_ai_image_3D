@@ -16,6 +16,11 @@ sd-vulkan/
 sd-bin/
 sd-vulkan-tmp.zip
 
+# Портативная сборка ComfyUI (python_embeded + ComfyUI + модели) - ставится
+# отдельно, путь задаётся через HC_COMFY_ROOT. Внутрь проекта не коммитим.
+/comfy/
+**/ComfyUI-Easy-Install/
+
 # --- Артефакты отладки и замеров ------------------------------------------------
 scripts/*.png
 scripts/*.jpg

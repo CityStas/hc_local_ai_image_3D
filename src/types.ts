@@ -116,6 +116,23 @@ export interface ModelInfo {
   backendId?: string;
 }
 
+/** Оформление интерфейса: неоновая (по умолчанию) и тёмный минимализм. */
+export type UiTheme = 'neon' | 'minimal';
+
+/** Настройки image-to-3D (ComfyUI-воркфлоу). */
+export interface Comfy3dConfig {
+  /** Какой воркфлоу гонять: Trellis2 (детальнее) или TripoSplat (быстрее). */
+  workflowId: 'trellis2_image_to_3d' | 'triposplat_image_to_3d';
+  /** Разрешение генерации: 512 (быстро) или 1024 (детально). */
+  resolution: 512 | 1024;
+  /** Шаги сэмплинга (меньше = быстрее). */
+  steps: number;
+  /** Сид, −1 = случайный. */
+  seed: number;
+  /** Сначала убрать фон (birefnet), потом гнать 3D — чище силуэт. */
+  removeBgFirst: boolean;
+}
+
 export interface InferenceConfig {
   temperature: number;
   topP: number;
@@ -128,6 +145,10 @@ export interface InferenceConfig {
   streamThinking: boolean;
   soundVolume: number;
   imageGen: ImageGenConfig;
+  /** Тема интерфейса. Не задана → 'neon' (обратная совместимость со старым конфигом). */
+  theme?: UiTheme;
+  /** Настройки 3D. Не задана → значения по умолчанию. */
+  comfy3d?: Comfy3dConfig;
 }
 
 export type EngineStatus = 'idle' | 'loading_model' | 'thinking' | 'generating' | 'generating_image' | 'error';

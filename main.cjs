@@ -10,6 +10,7 @@ const sdEngine = require('./sdEngine.cjs');
 const vlmEngine = require('./vlmEngine.cjs');
 const prefetch = require('./prefetch.cjs');
 const upscaleEngine = require('./upscaleEngine.cjs');
+const comfyEngine = require('./comfyEngine.cjs');
 
 // Имя приложения: видно в окне, в диспетчере задач и задаёт папку профиля
 // в %APPDATA%. До 2026-10-01 приложение называлось HotCache AI.
@@ -1124,6 +1125,61 @@ ipcMain.handle('llm:chat', async (_e, payload) => {
   };
 });
 
+// ---------- ComfyUI (sidecar: удаление фона, 3D) ----------
+// ComfyUI — отдельный Python-сервер (:8188). На 8 ГБ VRAM он не уживается с
+// sd-server (6.5 ГБ) и llama-server (5.5 ГБ), поэтому перед прогоном гасим их —
+// ровно тот же арбитраж, что и между SD/VLM.
+comfyEngine.configure({
+  beforeRun: async () => {
+    try { prefetch.abort(); } catch {}
+    try { await vlmEngine.stopVlmServerAndWait(); } catch {}
+    try { sdEngine.stopSdServer(); } catch {}
+    try { await unloadLlmForImageGen(); } catch {}
+  },
+});
+
+ipcMain.handle('comfy:status', async () => comfyEngine.getStatus());
+
+// Поднять сервер заранее (вход в режим 3D/RemBG), чтобы первый прогон не ждал импорт torch.
+ipcMain.handle('comfy:preload', async () => {
+  try {
+    const st = comfyEngine.getStatus();
+    if (!st.available) return { ok: false, error: 'Сборка ComfyUI не найдена (HC_COMFY_ROOT)' };
+    await comfyEngine.startServer((channel, data) => send(channel, data));
+    return { ok: true };
+  } catch (err) {
+    console.error('[hc/comfy] предзагрузка упала:', err?.message || err);
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('comfy:stop', async () => {
+  await comfyEngine.stopServerAndWait();
+  return true;
+});
+
+ipcMain.handle('comfy:abort', async () => {
+  await comfyEngine.abort();
+  return true;
+});
+
+ipcMain.handle('comfy:run', async (_e, payload) => {
+  const options = payload || {};
+  const workflowId = String(options.workflowId || '').trim();
+  if (!workflowId) return { ok: false, error: 'Не указан workflowId' };
+  try {
+    const result = await comfyEngine.runWorkflow(workflowId, options,
+      (channel, data) => send(channel, data));
+    return { ok: true, ...result };
+  } catch (err) {
+    if (err?.name === 'AbortError' || /abort/i.test(String(err?.message || err))) {
+      return { ok: false, aborted: true, error: 'Прогон отменён' };
+    }
+    console.error('[hc/comfy] ошибка:', err?.stack || err);
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
+
 // ---------- Stable Diffusion (text-to-image) ----------
 ipcMain.handle('sd:status', async () => {
   const st = sdEngine.getStatus();
@@ -1145,6 +1201,8 @@ ipcMain.handle('sd:preload', async () => {
   try {
     const port = sdEngine.SD_SERVER_PORT || 8687;
     if (await sdEngine.isServerAlive() && sdWarmedUp) return { ok: true, already: true };
+    // ComfyUI (python) держит RAM/VRAM — гасим до прогрева SD.
+    try { await comfyEngine.stopServerAndWait(); } catch {}
     try { await vlmEngine.stopVlmServerAndWait(); } catch {}
     if (!(await sdEngine.isServerAlive())) {
       const started = await sdEngine.startSdServer(null);
@@ -1205,6 +1263,10 @@ ipcMain.handle('sd:generate', async (_e, payload) => {
   try {
     // Останавливаем фоновый прогрев — скоро понадобится весь дисковый IO под SD.
     prefetch.abort();
+    // АРБИТРАЖ RAM/VRAM: ComfyUI (python + torch + модели, --lowvram) держит
+    // гигабайты системной памяти и не даёт sd-server'у удержать модели в VRAM —
+    // без этого повторная генерация падает со ~20с до 30-130с (перечитывание с диска).
+    try { await comfyEngine.stopServerAndWait(); } catch {}
     // Диагностика: дошло ли прикреплённое фото (img2img требует initImage).
     console.error('[hc/sd] прикреплённое фото (initImage):', !!options.initImage,
       options.initImage?.dataUrl ? `dataUrl ${(options.initImage.dataUrl.length/1024).toFixed(0)}KB`
@@ -1272,6 +1334,7 @@ ipcMain.handle('upscale:generate', async (_e, payload) => {
     // Арбитраж VRAM: VLM-сервер держит до ~6GB и может конфликтовать с апскейлом.
     // LLM (0.7GB) + апскейл (~1-2GB) спокойно уживаются в 8GB — LLM не трогаем.
     prefetch.abort();
+    try { await comfyEngine.stopServerAndWait(); } catch {}
     try { await vlmEngine.stopVlmServerAndWait(); } catch {}
     const result = await upscaleEngine.upscaleImage({ dataUrl, scale: options.scale, model: options.model },
       (channel, data) => send(channel, data));
@@ -1320,6 +1383,9 @@ ipcMain.handle('vlm:analyze', async (_e, payload) => {
     // АРБИТР VRAM: сначала гасим sd-server и ЖДЁМ фактического освобождения.
     // taskkill асинхронный — нельзя стартовать VLM до смерти процесса, иначе
     // llama-server падает по OOM и анализ вечно «думает» (ретраи не помогают).
+    // ComfyUI — самый прожорливый сосед (python + torch + модели в системной RAM).
+    try { await comfyEngine.stopServerAndWait(); } catch {}
+
     let sdFreed = true; // если sd-server не был запущен / не в VRAM — VRAM уже свободна
     if ((modelDef?.vramMb || 0) >= 2000) {
       send('vlm:progress', { progress: 2, text: 'Освобождение VRAM (остановка Image)...', phase: 'unload' });
@@ -1479,6 +1545,8 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  // ComfyUI (python) переживает закрытие Electron и держит ОЗУ/VRAM — добиваем.
+  comfyEngine.killStaleServer().catch((e) => console.error('[hc/comfy] stale cleanup:', e?.message || e));
   // Начинаем загрузку LLM сразу — параллельно с отрисовкой окна.
   // К моменту когда пользователь напишет первое сообщение, модель уже готова.
   ensureAllModels().catch((e) => console.error('[hc] pre-load failed:', e?.message || e));
@@ -1491,6 +1559,8 @@ app.on('window-all-closed', () => {
   sdEngine.disposeSdContext();
   try { sdEngine.stopSdServer(); } catch {}
   try { vlmEngine.stopVlmServer(); } catch {}
+  // ComfyUI — python-процесс, сам не умрёт: гасим вместе с окном.
+  try { comfyEngine.stopServer(); } catch {}
   // Освобождаем кэш-сессию перевода
   try { translateSession?.dispose(); } catch {}
   try { translateCtx?.dispose(); } catch {}
