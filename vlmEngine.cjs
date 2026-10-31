@@ -298,7 +298,7 @@ function getStatus(preferredId) {
     hint: !exe
       ? 'Скачай CLI: npm run download:vlm'
       : !ready
-        ? 'Скачай модель: npm run download:moondream'
+        ? 'Скачай модель: npm run download:vlm-model (Qwen2.5-VL 7B) или npm run download:moondream (Moondream 2)'
         : null,
   };
 }

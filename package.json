@@ -96,8 +96,8 @@
         ]
       },
       {
-        "from": "node_modules/electron/dist/resources/MiniCPM-V-2_6-Q4_K_M",
-        "to": "MiniCPM-V-2_6-Q4_K_M",
+        "from": "node_modules/electron/dist/resources/Qwen2.5-VL-7B",
+        "to": "Qwen2.5-VL-7B",
         "filter": [
           "**/*"
         ]
