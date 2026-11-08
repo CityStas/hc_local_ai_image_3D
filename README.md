@@ -7,12 +7,11 @@
 `Electron 30` + `React 19` + `node-llama-cpp` + `stable-diffusion.cpp (Vulkan)` +
 `llama.cpp (Vulkan)` + `ComfyUI (sidecar)`
 
-Версия без 3D - [CityStas/hc_local_ai_image](https://github.com/CityStas/hc_local_ai_image).
 Проект самодостаточен: `npm run download:all` кладёт всё нужное внутрь приложения, и
 без единой переменной окружения он работает. Если веса уже лежат в общем каталоге на
 диске, приложение подхватит их оттуда - см. [«Модели: где лежат»](#модели-где-лежат).
 
-![Генерация картинки в HC AI](docs/screenshot-2.jpg)
+![Генерация картинки в HC AI](docs/generation.jpg)
 
 ## Требования
 
@@ -120,8 +119,6 @@ LOCAL_LLM_MODELS=D:\AI\Models
 Свои файлы главнее, внешний корень подхватывается, только если своих нет.
 
 ## Что умеет
-
-![Интерфейс: чат, галерея вариантов, HUD](docs/screenshot-1.jpg)
 
 - **Чат** - стриминг, история, несколько сессий, персоны. Qwen3.5 0.8B крутится прямо
   в главном процессе Electron через `node-llama-cpp`. Свои GGUF подключаются
