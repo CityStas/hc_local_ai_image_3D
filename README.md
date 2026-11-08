@@ -1,119 +1,29 @@
-# HC AI 3D - офлайн-агент с локальными моделями, удалением фона и генерацией 3D
+# HC AI 3D
 
-Локальный мультимодальный ИИ-ассистент для Windows: **чат, генерация изображений,
-зрение, апскейл, удаление фона и image-to-3D** - всё считается на вашей машине.
-Без интернета, без облака, без API-ключей и подписок.
+Локальный мультимодальный ассистент для Windows: **чат, генерация картинок, зрение,
+апскейл, удаление фона и image-to-3D** - всё считается на вашей машине. Без облака,
+без API-ключей, без подписок.
 
-`Electron 30` + `React 19` + `node-llama-cpp` + `stable-diffusion.cpp (Vulkan)` + `llama.cpp (Vulkan)` + `ComfyUI (sidecar)`
+`Electron 30` + `React 19` + `node-llama-cpp` + `stable-diffusion.cpp (Vulkan)` +
+`llama.cpp (Vulkan)` + `ComfyUI (sidecar)`
 
-Это расширенная версия HC AI: к базовому набору (чат, картинки, Vision, апскейл)
-добавлены удаление фона нейросетью и генерация 3D-моделей из картинки.
 Версия без 3D - [CityStas/hc_local_ai_image](https://github.com/CityStas/hc_local_ai_image).
+Модели, движки и 3D-стек общие с [3GS_Master](https://github.com/CityStas/3gs_master) -
+см. [«Модели: где лежат»](#модели-где-лежат).
 
 ![Главный экран HC AI](docs/screenshot-1.jpg)
 
-![Генерация изображения: Z-Image Turbo](docs/screenshot-2.jpg)
-
----
-
-## Что умеет
-
-### Текст
-
-- Чат со стримингом токенов, история диалогов, несколько сессий, системные персоны.
-- Встроенная LLM - **Qwen3.5 0.8B Q4_K_M** (~507 МБ), гибридная SSM+attention
-  архитектура, 25 блоков. Крутится прямо в главном процессе Electron через
-  `node-llama-cpp`, без Python и без локального HTTP-сервера.
-- Подключение **своих GGUF**: инспектор читает заголовок файла (архитектура,
-  квантование, число слоёв, контекст) и добавляет модель в список.
-- Внутри LLM же работает служебная логика: перевод промптов RU→EN и
-  классификация намерения `EDIT`/`NEW` для режима изображений.
-
-### Изображения
-
-- Диффузия **Z-Image Turbo** (диффузионный трансформер Q4_K + VAE `ae` +
-  текстовый энкодер Qwen3-4B) через `sd-server` / `sd-cli` на Vulkan.
-- 768×768, euler + `sgm_uniform`, distilled guidance 3.5.
-- Промпт на русском автоматически переводится в английский встроенной LLM.
-- **EDIT-режим**: если в чате уже есть картинка, модель решает - доработать её
-  (`img2img` от предыдущего кадра) или нарисовать новую по описанию.
-- **Композитинг «продукт → сцена»**: приложенный предмет не проходит через
-  диффузию. Фон генерируется по описанию, а объект накладывается сверху через
-  canvas - пиксельно, с тенью и сохранением альфы. У непрозрачных фото на
-  однотонном фоне вырезается фон.
-- `sd-server` предзагружается при входе в режим изображений, чтобы к первому
-  запросу модели уже были в VRAM.
-
-### Удаление фона и 3D (ComfyUI)
-
-Идёт через встроенный **ComfyUI**, который поднимается как дочерний процесс
-(sidecar) на `127.0.0.1:8188`. Общение - HTTP `/prompt` + WebSocket `/ws` для
-прогресса, без Python-клиента и без зависимостей в `node_modules`.
-
-- **Убрать фон** - `birefnet` → PNG с альфа-каналом. Результат показывается
-  сразу, оригинал остаётся в галерее вариантов.
-- **В 3D** - image-to-3D двумя воркфлоу на выбор:
-  - **Trellis2** - детальнее, дольше (геометрия + текстура + UV-развёртка);
-  - **TripoSplat** - быстрее, грубее (гауссовы сплаты → меш).
-- Встроенный **просмотрщик GLB** (three.js): вращение, фон, каркас, скачивание.
-- Имя выходного файла берётся **из промпта картинки** (`sleek-modern-sneakers.glb`),
-  а не из шаблона ComfyUI.
-- Параметры в настройках: воркфлоу, разрешение препроцессинга (512/1024),
-  шаги, seed, «убрать фон перед 3D».
-
-**Галерея вариантов.** Под каждой картинкой собирается история обработки:
-`Оригинал` / `Без фона` / `×4` / `3D`. Клик делает вариант активным - с ним
-работают инструменты, лайтбокс и скачивание. То есть с одним и тем же кадром
-можно по отдельности сделать апскейл, вырезание фона и 3D.
-
-### Зрение (Vision)
-
-- **Qwen2.5-VL 7B Q4_K_M** + vision-энкодер `mmproj Q8_0` через `llama-server` /
-  `llama-mtmd-cli` на Vulkan. На 8 ГБ VRAM mmproj уходит на CPU
-  (`--no-mmproj-offload`), vision-токены ограничены 1024.
-- Быстрые чипы: **Описать** сцену, **OCR** (весь текст с фото),
-  **Объекты**, **Калории** (оценка по фото еды), свой вопрос.
-- Альтернативная модель - **Moondream2** F16 (см. `npm run download:moondream`).
-
-### Апскейл
-
-- **Real-ESRGAN ncnn Vulkan**, ×4. Наборы моделей: `realesrgan-x4plus`,
-  `realesrgan-x4plus-anime`, `realesr-animevideov3-x2/x3/x4`,
-  `realesr-general-x4v3`.
-
-### Рантайм
-
-- **Арбитраж RAM/VRAM.** Тяжёлые соседи не сосуществуют и гасятся по очереди:
-  `sd-server` (~6.5 ГБ), VLM-сервер (~5.5 ГБ), ComfyUI (~гигабайты RAM + VRAM).
-  Лёгкая LLM (~0.7 ГБ) остаётся в VRAM даже во время Vision: 0.7 + 6.0 ГБ
-  умещаются в 8 ГБ, поэтому возврат из Vision в чат мгновенный.
-- **ComfyUI не переживает сессию.** У python-процесса есть pid-файл, авто-стоп по
-  простою (`HC_COMFY_IDLE_STOP_MS`, по умолчанию 90 с) и гашение перед каждой
-  генерацией картинки / Vision / апскейлом. Без этого он держит ОЗУ и повторная
-  генерация деградирует с ~20 с до 30-130 с.
-- **Префетч в RAM page-cache.** Фоновый процесс прогревает GGUF-файлы в
-  страничный кэш RAM (`prefetch.cjs`), поэтому повторная загрузка идёт из памяти,
-  а не с диска. Замеры - в `BENCHMARKS.md` (холодная загрузка VLM ~35 с →
-  из RAM ~1 с).
-- **Телеметрия** в HUD: tok/s, step/s, занятая VRAM, размер контекста.
-- Синтезированные звуковые эффекты интерфейса (без внешних файлов).
-- Полностью офлайн. Никакой телеметрии, аналитики и сетевых вызовов.
-
----
-
 ## Требования
 
-|         |                                                                     |
-| ------- | ------------------------------------------------------------------- |
-| ОС      | Windows 10/11 x64                                                   |
-| Node.js | 20 или новее                                                        |
-| GPU     | с поддержкой Vulkan (NVIDIA / AMD / Intel Arc)                      |
-| VRAM    | 8 ГБ (для текста + изображений + Vision; ComfyUI работает в lowvram) |
-| RAM     | 16 ГБ рекомендуется (используется как кэш моделей)                  |
-| Диск    | ~13 ГБ под модели + ~2 ГБ под `node_modules` и сборку               |
-| ComfyUI | портативная сборка `ComfyUI-Easy-Install` с нужными нодами и моделями |
-
----
+|  |  |
+| --- | --- |
+| ОС | Windows 10/11 x64 |
+| Node.js | 20 или новее |
+| GPU | с поддержкой Vulkan (NVIDIA / AMD / Intel Arc) |
+| VRAM | 8 ГБ: на карте живёт одна тяжёлая модель за раз |
+| RAM | 16 ГБ рекомендуется - используется как кэш моделей |
+| Диск | ~13 ГБ под модели и движки, ~2 ГБ под `node_modules` и сборку |
+| ComfyUI | портативная сборка `ComfyUI-Easy-Install` - только для фона и 3D |
 
 ## Быстрый старт
 
@@ -121,149 +31,104 @@
 git clone https://github.com/CityStas/hc_local_ai_image_3D
 cd hc_local_ai_image_3D
 npm install
-npm run build
-```
-
-Дальше - модели. Одна команда качает базовый набор (~13 ГБ, время зависит от канала):
-
-```bash
-npm run download:all
-```
-
-Или по частям - минимальный набор для чата это только `download:llm`:
-
-```bash
-npm run download:llm         # Qwen3.5 0.8B      ~507 МБ   → чат
-npm run download:vulkan       # sd-cli / sd-server ~37 МБ   → движок изображений
-npm run download:zimage       # Z-Image Turbo     ~6.1 ГБ   → генерация картинок
-npm run download:vlm          # llama-server CLI   ~97 МБ   → движок Vision
-npm run download:vlm-model    # Qwen2.5-VL 7B     ~5.2 ГБ   → Vision
-npm run download:esrgan       # Real-ESRGAN        ~45 МБ   → апскейл ×4
-```
-
-### ComfyUI (для удаления фона и 3D)
-
-Отдельным шагом - сборка ComfyUI. Она **не входит в репозиторий** (это отдельный
-Python-дистрибутив на несколько ГБ) и модели для неё качаются отдельно.
-
-1. Возьмите портативную сборку `ComfyUI-Easy-Install` (внутри должны быть
-   `python_embeded\python.exe` и `ComfyUI\main.py`) и положите её в одну из папок,
-   которые ищет движок:
-
-   ```
-   <корень проекта>/comfy/ComfyUI-Easy-Install/
-   ../../3d_gen/3d_comfy/ComfyUI-Easy-Install/     (раскладка разработки)
-   ```
-
-   Либо укажите путь вручную - переменная окружения `HC_COMFY_ROOT` имеет приоритет:
-
-   ```powershell
-   $env:HC_COMFY_ROOT = "D:\ComfyUI-Easy-Install"
-   ```
-
-2. Установите в неё ноды, которые используют воркфлоу из `workflows/comfy/`:
-   GGUF-загрузчик UNet, Qwen-Image, фоновое вырезание (birefnet), Trellis2,
-   TripoSplat, MoGe, Pixal3D и утилиты для мешей/сплатов. Полный список типов
-   узлов виден прямо в JSON-файлах воркфлоу - ComfyUI покажет, чего не хватает,
-   при первом запуске.
-
-3. Положите модели в `ComfyUI/models/**` (имена файлов зашиты в воркфлоу,
-   список - в таблице ниже).
-
-Запуск:
-
-```bash
+npm run download:all      # ~13 ГБ моделей и движков, один раз
 npm start
 ```
 
-`npm start` делает `vite build` и поднимает Electron. Модель грузится лениво -
-при первом сообщении, прогресс виден в интерфейсе. ComfyUI поднимается лениво
-при первом нажатии «Убрать фон» или «В 3D» (холодный старт ~30-90 с, пока
-импортируется torch).
+`npm start` собирает фронтенд и поднимает Electron. Модель грузится лениво - при
+первом сообщении, прогресс виден в интерфейсе.
 
----
+## Модели: скачать
 
-## Модели: что, куда и откуда
+Скрипты сами кладут файлы туда, где их ищут движки, докачивают с места обрыва
+(`Range` + `.part`) и не перекачивают готовое. Качать можно по частям - минимальный
+набор для чата это `download:llm`.
 
-Скрипты кладут файлы туда, где их ищут движки. Если качаете вручную - имена
-файлов и папки должны совпадать точно, они зашиты в коде.
+| команда | размер | что даёт |
+| --- | --- | --- |
+| `npm run download:llm` | 507 МБ | Qwen3.5 0.8B - чат и служебная логика |
+| `npm run download:zimage` | 6.5 ГБ | Z-Image Turbo: диффузия + VAE + текстовый энкодер |
+| `npm run download:vlm-model` | 5.5 ГБ | Qwen2.5-VL 7B + mmproj - зрение |
+| `npm run download:vulkan` | 37 МБ | `sd-cli` / `sd-server` (Vulkan) |
+| `npm run download:vlm` | 97 МБ | `llama-server` / `llama-mtmd-cli` (Vulkan) |
+| `npm run download:esrgan` | 45 МБ | Real-ESRGAN ncnn - апскейл ×4 |
+| `npm run download:moondream` | 3.7 ГБ | альтернативная модель зрения |
 
-Скрипты можно запускать повторно: уже скачанное пропускается, недокачанное
-продолжается с того же байта (`.part`), обрыв связи переживается повтором. Так
-что `npm run download:all` после сбоя - это не «ещё 13 ГБ», а «остаток».
+Источники: [unsloth/Qwen3.5-0.8B-GGUF](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF),
+[leejet/Z-Image-Turbo-GGUF](https://huggingface.co/leejet/Z-Image-Turbo-GGUF),
+[Tongyi-MAI/Z-Image-Turbo](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo) (VAE),
+[unsloth/Qwen3-4B-Instruct-2507-GGUF](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF),
+[ggml-org/Qwen2.5-VL-7B-Instruct-GGUF](https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF),
+[ggml-org/moondream2-20250414-GGUF](https://huggingface.co/ggml-org/moondream2-20250414-GGUF),
+[leejet/stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp/releases) (`master-829-0a565f2`),
+[ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp/releases) (`b10679`),
+[xinntao/Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.2.5.0).
 
-| Модель                      | Файл                                                                               | Куда                                                  | Размер | Источник                                                                                                                |
-| --------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Qwen3.5 0.8B (текст)        | `qwen-3.5-0.8b.gguf`                                                               | `node_modules/electron/dist/resources/qwen-3.5-0.8b/` | 507 МБ | [unsloth/Qwen3.5-0.8B-GGUF](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF)                                           |
-| Z-Image Turbo (диффузия)    | `z_image_turbo-Q4_K.gguf`                                                          | `node_modules/electron/dist/resources/z-image-turbo/` | 3.9 ГБ | [leejet/Z-Image-Turbo-GGUF](https://huggingface.co/leejet/Z-Image-Turbo-GGUF)                                           |
-| Z-Image Turbo (VAE)         | `ae.safetensors`                                                                   | там же                                                | 168 МБ | [Tongyi-MAI/Z-Image-Turbo](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo) (`vae/diffusion_pytorch_model.safetensors`) |
-| Qwen3-4B (текст-энкодер)    | `Qwen3-4B-Instruct-2507-Q4_K_M.gguf`                                               | там же                                                | 2.5 ГБ | [unsloth/Qwen3-4B-Instruct-2507-GGUF](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF)                       |
-| Qwen2.5-VL 7B (Vision)      | `Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf`                                               | `node_modules/electron/dist/resources/Qwen2.5-VL-7B/` | 4.7 ГБ | [ggml-org/Qwen2.5-VL-7B-Instruct-GGUF](https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF)                     |
-| Qwen2.5-VL (vision-энкодер) | `mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf`                                          | там же                                                | 853 МБ | там же                                                                                                                  |
-| Moondream2 (опц. Vision)    | `moondream2-text-model-f16_ct-vicuna.gguf` + `moondream2-mmproj-f16-20250414.gguf` | `node_modules/electron/dist/resources/moondream2/`    | 3.7 ГБ | [ggml-org/moondream2-20250414-GGUF](https://huggingface.co/ggml-org/moondream2-20250414-GGUF)                           |
+**Фон и 3D - отдельным шагом.** Нужна портативная сборка `ComfyUI-Easy-Install`
+(внутри `python_embeded\python.exe` и `ComfyUI\main.py`), в репозиторий она не входит:
 
-Модели ComfyUI (для фона и 3D) - кладутся в `ComfyUI/models/**`, в подпапки,
-которые ожидают соответствующие ноды:
+1. положить сборку в `../3GS_Master/models/text_image_3D/3d_gen/3d_comfy/` **или**
+   указать путь: `set HC_COMFY_ROOT=D:\ComfyUI-Easy-Install`;
+2. доставить ноды из `workflows/comfy/` (GGUF-загрузчик UNet, birefnet, Trellis2,
+   TripoSplat, MoGe, Pixal3D) - ComfyUI сам перечислит отсутствующие при первом запуске;
+3. положить модели в `ComfyUI/models/**`: `birefnet.safetensors`,
+   `pixal3d_int8_convrot.safetensors`, `trellis_2_shape_vae_bf16.safetensors`,
+   `trellis_2_texture_vae_bf16.safetensors`, `dino_v3_L_naf_fp32.safetensors`,
+   `moge_2_vitl_normal_fp16.safetensors`, `triposplat_fp16.safetensors`,
+   `triposplat_vae_decoder_fp16.safetensors`, `dino_v3_vit_h.safetensors`,
+   `flux2-vae.safetensors` (~13 ГБ).
 
-| Что                        | Файл                                        | Для чего                  |
-| -------------------------- | ------------------------------------------- | ------------------------- |
-| Фоновое вырезание          | `birefnet.safetensors`                      | «Убрать фон», препроцесс  |
-| Trellis2 - геометрия       | `trellis_2_int8_convrot.safetensors`        | 3D (Trellis2)             |
-| Trellis2 - shape VAE       | `trellis_2_shape_vae_bf16.safetensors`      | 3D (Trellis2)             |
-| Trellis2 - texture VAE     | `trellis_2_texture_vae_bf16.safetensors`    | 3D (Trellis2)             |
-| Trellis2 - image encoder   | `dino_v3_L_naf_fp32.safetensors`            | 3D (Trellis2)             |
-| Trellis2 - геометрия сцены | `moge_2_vitl_normal_fp16.safetensors`       | 3D (Trellis2)             |
-| Trellis2 - текстуры        | `pixal3d_int8_convrot.safetensors`          | 3D (Trellis2)             |
-| TripoSplat - модель        | `triposplat_fp16.safetensors`               | 3D (TripoSplat)           |
-| TripoSplat - VAE           | `triposplat_vae_decoder_fp16.safetensors`   | 3D (TripoSplat)           |
-| TripoSplat - image encoder | `dino_v3_vit_h.safetensors`                 | 3D (TripoSplat)           |
-| TripoSplat - VAE (flux)    | `flux2-vae.safetensors`                     | 3D (TripoSplat)           |
-| Qwen-Image - UNet (GGUF)   | `qwen-image-2.1-UC-Q4_K_M.gguf`             | воркфлоу правки по фото   |
-| Qwen-Image - text encoder  | `qwen3vl_8b_int8_convrot.safetensors`       | воркфлоу правки по фото   |
-| Qwen-Image - VAE           | `qwen_image_2.1_vae_bf16.safetensors`       | воркфлоу правки по фото   |
+Если рядом лежит 3GS_Master - второй раз их качать не нужно: `gs models --fetch 3d`
+в 3GS_Master кладёт ровно этот набор в ту же папку ComfyUI.
 
-Движки (бинарники, не модели):
+## Модели: где лежат
 
-| Движок                                            | Куда                                                            | Источник                                                                                                      |
-| ------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `sd-cli.exe`, `sd-server.exe` (Vulkan)            | `sd-vulkan/`                                                    | [leejet/stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp/releases) - `master-829-0a565f2` |
-| `llama-server.exe`, `llama-mtmd-cli.exe` (Vulkan) | `llama-mtmd/`                                                   | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp/releases) - тег `b10679`                           |
-| `realesrgan-ncnn-vulkan.exe` + `models/`          | `node_modules/electron/dist/resources/Real-ESRGAN-ncnn-vulkan/` | [xinntao/Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.2.5.0) - `v0.2.5.0`              |
+Своих весов у HC AI нет - он берёт их из 3GS_Master или из своего корня. Абсолютных
+путей в коде нет, всё решается переменными:
 
-> Модели **не хранятся в репозитории** - это ~13 ГБ плюс модели ComfyUI.
-> `.gitignore` их исключает. Порядок скачивания неважен, важен только итоговый путь.
+| переменная | по умолчанию | что задаёт |
+| --- | --- | --- |
+| `HC_3GS_ROOT` | `../3GS_Master` | где лежит 3GS_Master (модели + `bin/`) |
+| `HC_MODELS_ROOT` | `<HC_3GS_ROOT>/models` | корень весов |
+| `GS_MODELS_ROOT` | - | то же, что читает 3GS_Master: задали один раз - работает у обоих |
+| `HC_COMFY_ROOT` | `<models>/text_image_3D/.../ComfyUI-Easy-Install` | сборка ComfyUI |
 
-### Если качаете вручную
-
-Создайте папки и положите файлы с точными именами:
-
-```
-node_modules/electron/dist/resources/
-├── qwen-3.5-0.8b/qwen-3.5-0.8b.gguf
-├── z-image-turbo/
-│   ├── z_image_turbo-Q4_K.gguf
-│   ├── ae.safetensors
-│   └── Qwen3-4B-Instruct-2507-Q4_K_M.gguf
-├── Qwen2.5-VL-7B/
-│   ├── Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
-│   └── mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf
-└── Real-ESRGAN-ncnn-vulkan/
-    ├── realesrgan-ncnn-vulkan.exe
-    └── models/
+```powershell
+$env:HC_3GS_ROOT = "D:\tools\3GS_Master"
 ```
 
-Движки - в корень проекта:
+Раскладка внутри корня: `image/z-image-turbo/`, `vlm/Qwen2.5-VL-7B/`, `llm/`,
+`text_image_3D/` (ComfyUI и его модели), `bin/` (sd-server, llama-server).
 
-```
-sd-vulkan/sd-cli.exe, sd-vulkan/sd-server.exe
-llama-mtmd/llama-server.exe, llama-mtmd/llama-mtmd-cli.exe (+ все .dll рядом)
-```
+Скачанное через `npm run download:*` лежит не здесь, а в
+`node_modules/electron/dist/resources/` - оттуда его пакует `electron-builder` при
+сборке `.exe`. Порядок поиска: упакованные ресурсы → `node_modules` → внешний корень,
+поэтому локальные файлы главнее, а 3GS_Master подхватывается, только если своих нет.
 
-Альтернативный путь - `<корень проекта>/resources/<папка>/`: движки проверяют
-и его тоже. Удобно, если не хотите ничего держать внутри `node_modules`
-(его перезапишет `npm ci` или повторный `npm install`).
+## Что умеет
 
----
+- **Чат** - стриминг, история, несколько сессий, персоны. Qwen3.5 0.8B крутится прямо
+  в главном процессе Electron через `node-llama-cpp`. Свои GGUF подключаются
+  инспектором: архитектура, квант, слои, контекст читаются из заголовка файла.
+- **Картинки** - Z-Image Turbo (768×768, euler + `sgm_uniform`, distilled guidance 3.5)
+  через `sd-server` на Vulkan. Промпт на русском переводится встроенной LLM. EDIT-режим
+  решает, доработать картинку или нарисовать новую; композитинг «продукт → сцена»
+  накладывает объект поверх сгенерированного фона пиксельно, с тенью и альфой.
+- **Зрение** - Qwen2.5-VL 7B + `mmproj Q8_0`; чипы «Описать», «OCR», «Объекты»,
+  «Калории». На 8 ГБ VRAM mmproj уходит на CPU.
+- **Апскейл** - Real-ESRGAN ncnn Vulkan ×4 (`realesrgan-x4plus`, `-anime`,
+  `realesr-animevideov3`, `realesr-general-x4v3`).
+- **Фон и 3D** - ComfyUI-сайдкар на `127.0.0.1:8188`: `birefnet` → PNG с альфой;
+  image-to-3D двумя воркфлоу (**Trellis2** - детальнее, **TripoSplat** - быстрее) и
+  встроенный просмотрщик GLB. Имя файла берётся из промпта картинки.
+- **Галерея вариантов** - под каждой картинкой `Оригинал` / `Без фона` / `×4` / `3D`;
+  клик делает вариант активным для остальных инструментов.
+- **Арбитраж RAM/VRAM** - тяжёлые соседи гасятся по очереди (`sd-server` ~6.5 ГБ,
+  VLM ~5.5 ГБ, ComfyUI), лёгкая LLM ~0.7 ГБ остаётся в VRAM. ComfyUI не переживает
+  сессию: pid-файл, авто-стоп по простою, гашение перед каждой генерацией.
+- **Префетч** GGUF в page-cache RAM (`prefetch.cjs`) - повторная загрузка идёт из
+  памяти; замеры в [`BENCHMARKS.md`](BENCHMARKS.md).
+- Полностью офлайн: ни телеметрии, ни аналитики, ни сетевых вызовов.
 
 ## Как проверить, что всё встало
 
@@ -271,43 +136,17 @@ llama-mtmd/llama-server.exe, llama-mtmd/llama-mtmd-cli.exe (+ все .dll ряд
 npm start
 ```
 
-1. В шапке слева должен быть **HC AI**, справа - модель `Qwen3.5 0.8B`.
-2. Спросите что-нибудь в чате → пойдёт стриминг токенов, в HUD появятся tok/s.
-   Если модели нет, в ответе будет подсказка `npm run download:llm`.
-3. Переключитесь в режим изображений и попросите «кот в шлеме астронавта».
-   Генерация ~15-25 с на `sd-server` (или 60-100 с на фолбэке `sd-cli`).
-4. Приложите фото и выберите чип **Описать** / **OCR** - включится Vision.
-5. Кнопка **Увеличить ×4** на картинке - апскейл.
-6. Кнопка **Убрать фон** - ComfyUI поднимется (первый раз ~30-90 с) и вернёт PNG
-   с прозрачностью. Картинка в панели обновится, а оригинал останется в галерее
-   вариантов внизу.
-7. Кнопка **В 3D** - соберёт модель и откроет просмотрщик. Результат появится
-   отдельной плашкой с кнопками «Открыть 3D» и «Скачать», имя файла будет
-   собрано из промпта.
+1. В шапке `HC AI`, справа модель `Qwen3.5 0.8B`. Спросите что-нибудь - пойдёт
+   стриминг, в HUD появятся tok/s. Нет модели - в ответе будет подсказка про
+   `npm run download:llm`.
+2. Режим картинок, «кот в шлеме астронавта» - 15-25 с на `sd-server`.
+3. Приложите фото, чип **Описать** / **OCR** - включится Vision.
+4. **Увеличить ×4** - апскейл.
+5. **Убрать фон** - ComfyUI поднимется (первый раз 30-90 с) и вернёт PNG с альфой.
+6. **В 3D** - соберёт модель и откроет просмотрщик.
 
-Без GPU с Vulkan приложение запустится, но генерация, Vision и 3D будут
-непрактично медленными: они рассчитаны на GPU.
-
----
-
-## Структура проекта
-
-```
-main.cjs            главный процесс: IPC, LLM через node-llama-cpp, оркестрация движков
-preload.cjs         contextBridge → window.nexus
-sdEngine.cjs        изображения: sd-server / sd-cli, img2img, арбитраж VRAM
-vlmEngine.cjs       Vision: llama-server / llama-mtmd-cli, ретраи, арбитраж VRAM
-comfyEngine.cjs     ComfyUI sidecar: :8188, воркфлоу, прогресс по WebSocket, жизненный цикл
-upscaleEngine.cjs   Real-ESRGAN ×4
-prefetch.cjs        фоновый прогрев GGUF в RAM page-cache
-workflows/comfy/    API-воркфлоу для ComfyUI + manifest.json (узлы, выходы, параметры)
-src/                React-интерфейс (App, ChatArea, Sidebar, SettingsDrawer, HUD)
-src/components/     MessageItem (картинка, галерея вариантов, действия), GlbViewer (three.js)
-scripts/            загрузка моделей, сборка портативной версии, бенчмарки
-BENCHMARKS.md       замеры холодной и «горячей» загрузки
-```
-
----
+Без GPU с Vulkan приложение запустится, но генерация, зрение и 3D будут непрактично
+медленными.
 
 ## Сборка .exe
 
@@ -316,20 +155,31 @@ npm run dist:exe          # портативный: dist/HC-AI-portable.exe
 npm run dist:installer    # установщик NSIS: dist/HC-AI-setup.exe
 ```
 
-`electron-builder` упаковывает модели из `extraResources` и воркфлоу из
-`workflows/`, поэтому папки с моделями должны быть на месте до сборки.
-Портативная версия - один файл, распаковал и запустил, права администратора
-не нужны. Сборка ComfyUI в дистрибутив не входит - путь к ней задаётся
-через `HC_COMFY_ROOT`.
+Модели из `node_modules/electron/dist/resources/` и воркфлоу из `workflows/` пакуются
+в дистрибутив, поэтому папки должны быть на месте **до** сборки. ComfyUI в поставку
+не входит - путь задаётся через `HC_COMFY_ROOT`.
 
----
+## Структура
+
+```
+main.cjs            главный процесс: IPC, LLM через node-llama-cpp, оркестрация движков
+preload.cjs         contextBridge → window.nexus
+modelPaths.cjs      где искать модели и бинарники (3GS_Master, env-переопределения)
+sdEngine.cjs        картинки: sd-server / sd-cli, img2img, арбитраж VRAM
+vlmEngine.cjs       зрение: llama-server / llama-mtmd-cli, ретраи, арбитраж VRAM
+comfyEngine.cjs     ComfyUI-сайдкар: :8188, воркфлоу, прогресс по WebSocket
+upscaleEngine.cjs   Real-ESRGAN ×4
+prefetch.cjs        фоновый прогрев GGUF в RAM page-cache
+workflows/comfy/    API-воркфлоу ComfyUI + manifest.json
+src/                React-интерфейс
+scripts/            загрузка моделей, сборка портативной версии, бенчмарки
+```
 
 ## Лицензии
 
-Код приложения - авторский. Модели распространяются под своими лицензиями:
-Qwen3.5 0.8B и Qwen3-4B - Apache 2.0, Qwen2.5-VL - Apache 2.0,
-Z-Image Turbo - см. [Tongyi-MAI/Z-Image-Turbo](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo),
+Код приложения - авторский. Модели под своими лицензиями: Qwen3.5 0.8B и Qwen3-4B -
+Apache 2.0, Qwen2.5-VL - Apache 2.0, Z-Image Turbo - см.
+[Tongyi-MAI/Z-Image-Turbo](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo),
 Real-ESRGAN - BSD-3-Clause, `llama.cpp` и `stable-diffusion.cpp` - MIT.
-`ComfyUI` распространяется под GPL-3.0 и запускается как отдельный процесс,
-в поставку не входит. Перед коммерческим использованием проверьте условия
-каждой модели.
+`ComfyUI` - GPL-3.0, запускается отдельным процессом и в поставку не входит.
+Перед коммерческим использованием проверьте условия каждой модели.

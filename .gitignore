@@ -22,6 +22,7 @@ sd-vulkan-tmp.zip
 **/ComfyUI-Easy-Install/
 
 # --- Артефакты отладки и замеров ------------------------------------------------
+out/
 scripts/*.png
 scripts/*.jpg
 scripts/*.log

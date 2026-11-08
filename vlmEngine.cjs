@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { spawn } = require('child_process');
+const modelPaths = require('./modelPaths.cjs');
 
 const VLM_MODELS = {
   qwen25vl: {
@@ -83,6 +84,8 @@ function findLlamaServer() {
   const candidates = [
     path.join(__dirname, 'llama-mtmd', 'llama-server.exe'),
     path.join(__dirname, 'llama-mtmd', 'bin', 'llama-server.exe'),
+    modelPaths.resolveBinary('llama-mtmd', 'llama-server.exe'),
+    modelPaths.resolveBinary('llama', 'llama-server.exe'),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
@@ -234,7 +237,10 @@ function resolveResource(...parts) {
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
-  return null;
+  // 3GS_Master/models/vlm/<dir>/<file> и models/<dir>/<file>
+  const ext = path.join(modelPaths.MODELS_ROOT, 'vlm', ...parts);
+  if (fs.existsSync(ext)) return ext;
+  return modelPaths.resolveModelParts(...parts);
 }
 
 function findMtmdExe() {
@@ -242,6 +248,7 @@ function findMtmdExe() {
   const dirs = [
     path.join(__dirname, 'llama-mtmd'),
     path.join(__dirname, 'llama-mtmd', 'bin'),
+    path.join(modelPaths.BIN_ROOT, 'llama-mtmd'),
     process.resourcesPath ? path.join(process.resourcesPath, 'llama-mtmd') : null,
     process.resourcesPath ? path.join(process.resourcesPath, 'resources', 'llama-mtmd') : null,
   ].filter(Boolean);

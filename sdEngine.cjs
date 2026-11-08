@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const zlib = require('zlib');
 const { spawn } = require('child_process');
+const modelPaths = require('./modelPaths.cjs');
 
 const MODEL = {
   id: 'z-image-turbo',
@@ -77,7 +78,9 @@ function findSdExe() {
     path.join(__dirname, 'sd-vulkan', 'bin', 'sd-cli.exe'),
     path.join(__dirname, 'sd-bin', 'sd-cli.exe'),
     path.join(__dirname, 'sd-bin', 'sd.exe'),
-  ];
+    modelPaths.resolveBinary('sd-vulkan', 'sd-cli.exe'),
+    modelPaths.resolveBinary('sd-vulkan', 'sd.exe'),
+  ].filter(Boolean);
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
@@ -130,6 +133,9 @@ async function generateImageCLI(options, send) {
     '--diffusion-fa',
     '--vae-tiling',
     '--backend', 'diffusion=vulkan0,te=cpu',
+    // Без --eager-load веса не копируются в VRAM (copy_to_backend: 0.00s) —
+    // диффузия молча считается на CPU, VRAM остаётся пустой.
+    '--eager-load',
   ];
   if (modelDef.modelArgs) {
     args.push('--model-args', modelDef.modelArgs);
@@ -298,7 +304,8 @@ function findSdServerExe() {
   const candidates = [
     path.join(__dirname, 'sd-vulkan', 'sd-server.exe'),
     path.join(__dirname, 'sd-bin', 'sd-server.exe'),
-  ];
+    modelPaths.resolveBinary('sd-vulkan', 'sd-server.exe'),
+  ].filter(Boolean);
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
@@ -340,6 +347,7 @@ async function startSdServer(send) {
       '--diffusion-fa',
       '--vae-tiling',
       '--backend', 'diffusion=vulkan0,te=cpu',
+      '--eager-load',
       '--model-args', 'qwen_image_zero_cond_t=true',
     ];
     serverProc = spawn(exe, args, {
@@ -575,6 +583,9 @@ function resourceRoots() {
   }
   roots.push(path.join(__dirname, 'node_modules', 'electron', 'dist', 'resources'));
   roots.push(path.join(__dirname, 'resources'));
+  // 3GS_Master/models/image/<dir> — внешние модели
+  roots.push(path.join(modelPaths.MODELS_ROOT, 'image'));
+  roots.push(modelPaths.MODELS_ROOT);
   return roots;
 }
 

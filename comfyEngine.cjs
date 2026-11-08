@@ -15,6 +15,7 @@ const net = require('net');
 const os = require('os');
 const crypto = require('crypto');
 const { spawn, execFile } = require('child_process');
+const modelPaths = require('./modelPaths.cjs');
 
 const PORT = Number(process.env.HC_COMFY_PORT || 8188);
 const HOST = '127.0.0.1';
@@ -153,6 +154,8 @@ function comfyRoots() {
   roots.push(path.join(projectLocal, '3d_gen', '3d_comfy', CEI_DIR));
   roots.push(path.join(projectLocal, '3d', '3d_comfy', CEI_DIR)); // старая раскладка
   roots.push(path.join(__dirname, 'comfy', CEI_DIR));
+  // 3GS_Master/text_image_3D/3d_gen/3d_comfy/ComfyUI-Easy-Install (3D: TripoSplat, Trellis2/Pixal3D)
+  roots.push(modelPaths.COMFY_ROOT_3D);
   return roots;
 }
 

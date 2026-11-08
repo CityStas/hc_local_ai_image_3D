@@ -11,6 +11,7 @@ const vlmEngine = require('./vlmEngine.cjs');
 const prefetch = require('./prefetch.cjs');
 const upscaleEngine = require('./upscaleEngine.cjs');
 const comfyEngine = require('./comfyEngine.cjs');
+const modelPaths = require('./modelPaths.cjs');
 
 // Имя приложения: видно в окне, в диспетчере задач и задаёт папку профиля
 // в %APPDATA%. До 2026-10-01 приложение называлось HotCache AI.
@@ -121,7 +122,8 @@ function resolveModelPath(dir, file) {
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
-  return null;
+  // Внешние модели 3GS_Master: models/llm/<dir>/<file>, models/vlm/<dir>/<file>, models/<dir>/<file>
+  return modelPaths.resolveModelFile(dir, file);
 }
 
 const MODELS_PATHS = MODELS.map((m) => ({ ...m, path: resolveModelPath(m.dir, m.file) }));
@@ -1317,6 +1319,7 @@ ipcMain.handle('sd:generate', async (_e, payload) => {
     return { ok: false, error: String(err?.message || err) };
   }
 });
+
 
 // ---------- Апскейл изображений (Real-ESRGAN-ncnn-vulkan, автономно) ----------
 ipcMain.handle('upscale:status', async () => upscaleEngine.getStatus());
