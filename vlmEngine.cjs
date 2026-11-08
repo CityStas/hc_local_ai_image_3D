@@ -237,7 +237,7 @@ function resolveResource(...parts) {
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
-  // 3GS_Master/models/vlm/<dir>/<file> и models/<dir>/<file>
+  // <MODELS_ROOT>/vlm/<dir>/<file> и models/<dir>/<file>
   const ext = path.join(modelPaths.MODELS_ROOT, 'vlm', ...parts);
   if (fs.existsSync(ext)) return ext;
   return modelPaths.resolveModelParts(...parts);

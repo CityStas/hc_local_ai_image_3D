@@ -8,10 +8,11 @@
 `llama.cpp (Vulkan)` + `ComfyUI (sidecar)`
 
 Версия без 3D - [CityStas/hc_local_ai_image](https://github.com/CityStas/hc_local_ai_image).
-Модели, движки и 3D-стек общие с [3GS_Master](https://github.com/CityStas/3gs_master) -
-см. [«Модели: где лежат»](#модели-где-лежат).
+Проект самодостаточен: `npm run download:all` кладёт всё нужное внутрь приложения, и
+без единой переменной окружения он работает. Если веса уже лежат в общем каталоге на
+диске, приложение подхватит их оттуда - см. [«Модели: где лежат»](#модели-где-лежат).
 
-![Главный экран HC AI](docs/screenshot-1.jpg)
+![Генерация картинки в HC AI](docs/screenshot-2.jpg)
 
 ## Требования
 
@@ -67,7 +68,7 @@ npm start
 **Фон и 3D - отдельным шагом.** Нужна портативная сборка `ComfyUI-Easy-Install`
 (внутри `python_embeded\python.exe` и `ComfyUI\main.py`), в репозиторий она не входит:
 
-1. положить сборку в `../3GS_Master/models/text_image_3D/3d_gen/3d_comfy/` **или**
+1. положить сборку в `comfy/ComfyUI-Easy-Install/` рядом с приложением **или**
    указать путь: `set HC_COMFY_ROOT=D:\ComfyUI-Easy-Install`;
 2. доставить ноды из `workflows/comfy/` (GGUF-загрузчик UNet, birefnet, Trellis2,
    TripoSplat, MoGe, Pixal3D) - ComfyUI сам перечислит отсутствующие при первом запуске;
@@ -78,34 +79,49 @@ npm start
    `triposplat_vae_decoder_fp16.safetensors`, `dino_v3_vit_h.safetensors`,
    `flux2-vae.safetensors` (~13 ГБ).
 
-Если рядом лежит 3GS_Master - второй раз их качать не нужно: `gs models --fetch 3d`
-в 3GS_Master кладёт ровно этот набор в ту же папку ComfyUI.
+Если эти же веса уже лежат в общем каталоге (например, их положил другой локальный
+инструмент), качать второй раз не нужно - достаточно `HC_COMFY_ROOT` и `HC_MODELS_ROOT`
+на этот каталог.
 
 ## Модели: где лежат
 
-Своих весов у HC AI нет - он берёт их из 3GS_Master или из своего корня. Абсолютных
-путей в коде нет, всё решается переменными:
+Абсолютных путей в коде нет - буква диска не зашита нигде. **По умолчанию всё, что
+качает `npm run download:*`, лежит внутри приложения** - ничего настраивать не нужно,
+внешние каталоги это только опция.
 
 | переменная | по умолчанию | что задаёт |
 | --- | --- | --- |
-| `HC_3GS_ROOT` | `../3GS_Master` | где лежит 3GS_Master (модели + `bin/`) |
-| `HC_MODELS_ROOT` | `<HC_3GS_ROOT>/models` | корень весов |
-| `GS_MODELS_ROOT` | - | то же, что читает 3GS_Master: задали один раз - работает у обоих |
-| `HC_COMFY_ROOT` | `<models>/text_image_3D/.../ComfyUI-Easy-Install` | сборка ComfyUI |
+| `LOCAL_LLM_MODELS` | пусто | **общий** корень весов на машине; нейтральное имя, его может читать любой локальный инструмент |
+| `HC_MODELS_ROOT` | `LOCAL_LLM_MODELS`, иначе ресурсы приложения | корень весов только для HC AI (побеждает общий) |
+| `HC_COMFY_ROOT` | `<models>/text_image_3D/3d_gen/3d_comfy/ComfyUI-Easy-Install`, иначе `comfy/` рядом с приложением | сборка ComfyUI |
+| `HC_BIN_ROOT` | папка приложения | где искать `sd-server`, `llama-server` |
 
-```powershell
-$env:HC_3GS_ROOT = "D:\tools\3GS_Master"
+Общий каталог нужен, только если веса уже лежат где-то на диске и качать их второй раз
+незачем. Тогда путь задаётся один раз на машину:
+
+```cmd
+setx LOCAL_LLM_MODELS "D:\AI\Models"
+```
+
+Если общий корень нужен только этому приложению, путь пишется в `.env` рядом с
+`package.json` (файл в git не попадает, образец - `.env.example`):
+
+```cmd
+copy .env.example .env
+:: затем в .env:
+LOCAL_LLM_MODELS=D:\AI\Models
 ```
 
 Раскладка внутри корня: `image/z-image-turbo/`, `vlm/Qwen2.5-VL-7B/`, `llm/`,
 `text_image_3D/` (ComfyUI и его модели), `bin/` (sd-server, llama-server).
 
-Скачанное через `npm run download:*` лежит не здесь, а в
-`node_modules/electron/dist/resources/` - оттуда его пакует `electron-builder` при
-сборке `.exe`. Порядок поиска: упакованные ресурсы → `node_modules` → внешний корень,
-поэтому локальные файлы главнее, а 3GS_Master подхватывается, только если своих нет.
+Порядок поиска: ресурсы приложения (`node_modules/electron/dist/resources/`, из неё же
+`electron-builder` пакует `.exe`) → папки рядом с приложением → внешний корень.
+Свои файлы главнее, внешний корень подхватывается, только если своих нет.
 
 ## Что умеет
+
+![Интерфейс: чат, галерея вариантов, HUD](docs/screenshot-1.jpg)
 
 - **Чат** - стриминг, история, несколько сессий, персоны. Qwen3.5 0.8B крутится прямо
   в главном процессе Electron через `node-llama-cpp`. Свои GGUF подключаются
@@ -164,7 +180,7 @@ npm run dist:installer    # установщик NSIS: dist/HC-AI-setup.exe
 ```
 main.cjs            главный процесс: IPC, LLM через node-llama-cpp, оркестрация движков
 preload.cjs         contextBridge → window.nexus
-modelPaths.cjs      где искать модели и бинарники (3GS_Master, env-переопределения)
+modelPaths.cjs      где искать модели и бинарники (env-переопределения, общий корень)
 sdEngine.cjs        картинки: sd-server / sd-cli, img2img, арбитраж VRAM
 vlmEngine.cjs       зрение: llama-server / llama-mtmd-cli, ретраи, арбитраж VRAM
 comfyEngine.cjs     ComfyUI-сайдкар: :8188, воркфлоу, прогресс по WebSocket

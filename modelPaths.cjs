@@ -1,53 +1,80 @@
-// modelPaths.cjs — единая точка поиска внешних моделей и бинарников (3GS_Master).
+// modelPaths.cjs — где HC AI ищет внешние модели и бинарники движков.
 //
-// Раскладка 3GS_Master:
-//   models/image/z-image-turbo/   → diffusion, VAE, LLM-энкодер (sd-server)
-//   models/llm/qwen-3.5-0.8b/     → лёгкий чат
-//   models/vlm/Qwen2.5-VL-7B/     → vision (llama-server / mtmd)
-//   text_image_3D/3d_gen/3d_comfy/ComfyUI-Easy-Install → ComfyUI (3D: TripoSplat, Trellis2/Pixal3D)
-//   bin/                          → sd-server/sd-cli, llama-server, llama-mtmd-cli
+// Проект самодостаточен: `npm run download:all` кладёт всё внутрь приложения
+// (node_modules/electron/dist/resources/), и без единой переменной окружения
+// приложение работает. Этот модуль нужен только чтобы взять веса из ОБЩЕГО
+// каталога, если он у вас уже есть, — неважно, кто его наполнил.
 //
-// Переопределение через env: HC_3GS_ROOT, HC_MODELS_ROOT, HC_COMFY_ROOT_3D.
-// Пути из приложения (resourcesPath, node_modules/electron/dist/resources) имеют приоритет:
-// эти функции вызываются ПОСЛЕ них, поэтому упакованная сборка не меняется.
+// Порядок для корня весов:
+//   HC_MODELS_ROOT      только для этого приложения (побеждает)
+//   LOCAL_LLM_MODELS    ОБЩИЙ корень: нейтральное имя, его может читать любой
+//                       другой локальный инструмент, поэтому один каталог
+//                       обслуживает несколько приложений без знания путей друг друга
+//   resources приложения — то, что скачали npm-скрипты; дефолт
 //
-// Абсолютных путей здесь нет намеренно. Раскладка «3GS_Master лежит рядом» - это
-// единственное, что можно предположить о чужой машине: клон двух репозиториев в один
-// каталог работает на любой букве диска. Всё остальное - через HC_3GS_ROOT.
+// Ожидаемая раскладка в общем корне (её создаёт любой из инструментов):
+//   image/z-image-turbo/   diffusion + VAE + текстовый энкодер (sd-server)
+//   llm/                   чат-GGUF
+//   vlm/Qwen2.5-VL-7B/     vision (llama-server / mtmd)
+//   text_image_3D/3d_gen/3d_comfy/ComfyUI-Easy-Install   ComfyUI для фона и 3D
+//
+// Ни одного пути к другому проекту здесь нет: связь только через переменную
+// окружения, и она необязательна. Пути приложения (process.resourcesPath,
+// node_modules/electron/dist/resources) по-прежнему в приоритете — движки
+// вызывают эти функции ПОСЛЕ своих собственных кандидатов.
 const path = require('path');
 const fs = require('fs');
 
-const GS_CANDIDATES = [
-  process.env.HC_3GS_ROOT,
-  path.resolve(__dirname, '..', '3GS_Master'),
-].filter(Boolean);
+const APP_ROOT = __dirname;
 
-function pickGsRoot() {
-  for (const c of GS_CANDIDATES) if (fs.existsSync(c)) return c;
-  return GS_CANDIDATES[GS_CANDIDATES.length - 1];
-}
+// `.env` рядом с приложением — единственный файл, где можно записать пути один раз
+// и не трогать окружение системы. Формат: KEY=VALUE, `#` — комментарий. Уже
+// выставленные переменные окружения главнее файла, поэтому `setx` тоже работает.
+// В git файла нет (`.env*` в .gitignore), есть только `.env.example`.
+(function loadDotEnv() {
+  const file = path.join(APP_ROOT, '.env');
+  if (!fs.existsSync(file)) return;
+  let text = '';
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch {
+    return;
+  }
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (key && process.env[key] === undefined) process.env[key] = value;
+  }
+})();
 
-const GS_ROOT = pickGsRoot();
-// Порядок: свой корень HC -> корень 3GS_Master (та же переменная, что читает сам
-// 3GS_Master, так что «веса на диске D:» настраивается один раз и для обоих) ->
-// <3GS>/models.
+// Куда electron-builder кладёт extraResources: в собранном .exe это
+// process.resourcesPath, в разработке — node_modules/electron/dist/resources.
+const APP_RESOURCES = process.resourcesPath
+  ? process.resourcesPath
+  : path.join(APP_ROOT, 'node_modules', 'electron', 'dist', 'resources');
+
 const MODELS_ROOT =
   process.env.HC_MODELS_ROOT ||
-  process.env.GS_MODELS_ROOT ||
-  path.join(GS_ROOT, 'models');
-const BIN_ROOT = path.join(GS_ROOT, 'bin');
+  process.env.LOCAL_LLM_MODELS ||
+  APP_RESOURCES;
 
-// Реальная раскладка 3GS_Master — ComfyUI лежит ВНУТРИ models/:
-//   models/text_image_3D/3d_gen/3d_comfy/ComfyUI-Easy-Install
-// Старый путь без models/ оставлен как фолбэк: у части сборок ComfyUI
-// распакован прямо в корне, и ломать их не хочется.
+// Бинарники: рядом с приложением (sd-vulkan/, llama-mtmd/) либо там, куда указали.
+const BIN_ROOT = process.env.HC_BIN_ROOT || APP_ROOT;
+
 const COMFY_ROOT_CANDIDATES = [
-  process.env.HC_COMFY_ROOT_3D,
-  // 3GS_Master зовёт её THREE_COMFY_ROOT; принимаем обе, чтобы один local.env.cmd
-  // настраивал оба инструмента.
-  process.env.THREE_COMFY_ROOT,
+  process.env.HC_COMFY_ROOT,
   path.join(MODELS_ROOT, 'text_image_3D', '3d_gen', '3d_comfy', 'ComfyUI-Easy-Install'),
-  path.join(GS_ROOT, 'text_image_3D', '3d_gen', '3d_comfy', 'ComfyUI-Easy-Install'),
+  path.join(APP_ROOT, 'comfy', 'ComfyUI-Easy-Install'),
 ].filter(Boolean);
 
 function pickComfyRoot() {
@@ -61,12 +88,14 @@ const COMFY_ROOT_3D = pickComfyRoot();
 
 /** Корни, где ищутся GGUF/safetensors по паре (папка модели, файл). */
 function modelRoots() {
-  return [
+  const roots = [
     path.join(MODELS_ROOT, 'image'),
     path.join(MODELS_ROOT, 'llm'),
     path.join(MODELS_ROOT, 'vlm'),
     MODELS_ROOT,
+    APP_RESOURCES,
   ];
+  return [...new Set(roots)];
 }
 
 /** Ищет файл dir/file во внешних моделях. Возвращает абсолютный путь или null. */
@@ -87,14 +116,15 @@ function resolveModelParts(...parts) {
   return null;
 }
 
-/** Ищет exe в bin/ 3GS_Master по относительным путям. */
+/** Ищет exe по относительным путям внутри BIN_ROOT. */
 function resolveBinary(...relParts) {
   const full = path.join(BIN_ROOT, ...relParts);
   return fs.existsSync(full) ? full : null;
 }
 
 module.exports = {
-  GS_ROOT,
+  APP_ROOT,
+  APP_RESOURCES,
   MODELS_ROOT,
   BIN_ROOT,
   COMFY_ROOT_3D,

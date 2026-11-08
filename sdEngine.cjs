@@ -583,7 +583,7 @@ function resourceRoots() {
   }
   roots.push(path.join(__dirname, 'node_modules', 'electron', 'dist', 'resources'));
   roots.push(path.join(__dirname, 'resources'));
-  // 3GS_Master/models/image/<dir> — внешние модели
+  // <MODELS_ROOT>/image/<dir> — внешний корень весов
   roots.push(path.join(modelPaths.MODELS_ROOT, 'image'));
   roots.push(modelPaths.MODELS_ROOT);
   return roots;

@@ -154,7 +154,7 @@ function comfyRoots() {
   roots.push(path.join(projectLocal, '3d_gen', '3d_comfy', CEI_DIR));
   roots.push(path.join(projectLocal, '3d', '3d_comfy', CEI_DIR)); // старая раскладка
   roots.push(path.join(__dirname, 'comfy', CEI_DIR));
-  // 3GS_Master/text_image_3D/3d_gen/3d_comfy/ComfyUI-Easy-Install (3D: TripoSplat, Trellis2/Pixal3D)
+  // <MODELS_ROOT>/text_image_3D/3d_gen/3d_comfy/ComfyUI-Easy-Install (3D: TripoSplat, Trellis2/Pixal3D)
   roots.push(modelPaths.COMFY_ROOT_3D);
   return roots;
 }

@@ -122,7 +122,7 @@ function resolveModelPath(dir, file) {
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
-  // Внешние модели 3GS_Master: models/llm/<dir>/<file>, models/vlm/<dir>/<file>, models/<dir>/<file>
+  // Внешний корень весов: models/llm/<dir>/<file>, models/vlm/<dir>/<file>, models/<dir>/<file>
   return modelPaths.resolveModelFile(dir, file);
 }
 
