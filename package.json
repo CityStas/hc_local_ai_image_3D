@@ -25,6 +25,10 @@
     "download:vlm": "powershell -ExecutionPolicy Bypass -File scripts/download-vlm.ps1",
     "download:moondream": "powershell -ExecutionPolicy Bypass -File scripts/download-moondream.ps1",
     "download:all": "npm run download:llm && npm run download:vulkan && npm run download:zimage && npm run download:vlm && npm run download:vlm-model && npm run download:esrgan",
+    "download:image-vision": "npm run download:vulkan && npm run download:zimage && npm run download:vlm && npm run download:vlm-model",
+    "download:3d": "powershell -ExecutionPolicy Bypass -File scripts/download-3d.ps1",
+    "download:3d-all": "powershell -ExecutionPolicy Bypass -File scripts/download-3d.ps1 -Trellis2",
+    "download:everything": "npm run download:all && npm run download:3d-all",
     "test:zimage": "node scripts/test-zimage-load.cjs",
     "bench:memory": "node scripts/bench-memory.cjs"
   },

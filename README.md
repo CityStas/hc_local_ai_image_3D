@@ -22,8 +22,12 @@
 | GPU | с поддержкой Vulkan (NVIDIA / AMD / Intel Arc) |
 | VRAM | 8 ГБ: на карте живёт одна тяжёлая модель за раз |
 | RAM | 16 ГБ рекомендуется - используется как кэш моделей |
-| Диск | ~13 ГБ под модели и движки, ~2 ГБ под `node_modules` и сборку |
-| ComfyUI | портативная сборка `ComfyUI-Easy-Install` - только для фона и 3D |
+| Диск | ~15 ГБ под чат, картинки, зрение и сборку; **~42 ГБ**, если нужен ещё фон и 3D |
+| ComfyUI | портативная сборка `ComfyUI-Easy-Install` (~14 ГБ) - только для фона и 3D |
+
+Цифра «13 ГБ» в интернете и на карточках - это **базовый** набор: чат, генерация
+картинок, зрение, апскейл. 3D в него не входит: там отдельно ~13 ГБ весов и ~14 ГБ
+сама сборка ComfyUI, то есть до ~42 ГБ на диске.
 
 ## Быстрый старт
 
@@ -31,7 +35,7 @@
 git clone https://github.com/CityStas/hc_local_ai_image_3D
 cd hc_local_ai_image_3D
 npm install
-npm run download:all      # ~13 ГБ моделей и движков, один раз
+npm run download:all      # ~13 ГБ: чат, картинки, зрение, апскейл
 npm start
 ```
 
@@ -40,9 +44,21 @@ npm start
 
 ## Модели: скачать
 
-Скрипты сами кладут файлы туда, где их ищут движки, докачивают с места обрыва
-(`Range` + `.part`) и не перекачивают готовое. Качать можно по частям - минимальный
-набор для чата это `download:llm`.
+Наборы - от минимального к полному. Всё, что уже лежит на диске, скрипты пропускают;
+обрыв связи переживают докачкой с того же байта.
+
+| что нужно | команда | размер |
+| --- | --- | --- |
+| только чат | `npm run download:llm` | 0.5 ГБ |
+| **картинки + зрение**, без чата и 3D | `npm run download:image-vision` | ~12.6 ГБ |
+| **всё базовое** (чат, картинки, зрение, апскейл) | `npm run download:all` | ~13 ГБ |
+| **только 3D** (нужна сборка ComfyUI) | `npm run download:3d` | ~13 ГБ |
+| всё, включая 3D и оба бэкбона | `npm run download:everything` | ~42 ГБ |
+
+3D полностью необязателен: без ComfyUI приложение работает, а «Убрать фон» и «В 3D»
+скажут, чего не хватает. Для чата, картинок и зрения хватает `download:all`.
+
+По шагам:
 
 | команда | размер | что даёт |
 | --- | --- | --- |
@@ -53,6 +69,12 @@ npm start
 | `npm run download:vlm` | 97 МБ | `llama-server` / `llama-mtmd-cli` (Vulkan) |
 | `npm run download:esrgan` | 45 МБ | Real-ESRGAN ncnn - апскейл ×4 |
 | `npm run download:moondream` | 3.7 ГБ | альтернативная модель зрения |
+| `npm run download:3d` | 13 ГБ | 10 файлов для фона и image-to-3D в `ComfyUI\models\**` |
+| `npm run download:3d-all` | 19.8 ГБ | то же + бэкбон Trellis2 (альтернатива Pixal3D) |
+
+Скрипты кладут файлы туда, где их ищут движки, докачивают с места обрыва
+(`Range` + `.part`) и не перекачивают готовое. `download:3d` дополнительно сверяет
+`sha256` каждого файла - недокачанный или перезалитый на HF файл не сойдёт за рабочий.
 
 Источники: [unsloth/Qwen3.5-0.8B-GGUF](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF),
 [leejet/Z-Image-Turbo-GGUF](https://huggingface.co/leejet/Z-Image-Turbo-GGUF),
@@ -60,23 +82,31 @@ npm start
 [unsloth/Qwen3-4B-Instruct-2507-GGUF](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF),
 [ggml-org/Qwen2.5-VL-7B-Instruct-GGUF](https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF),
 [ggml-org/moondream2-20250414-GGUF](https://huggingface.co/ggml-org/moondream2-20250414-GGUF),
+[Comfy-Org/Pixal3D](https://huggingface.co/Comfy-Org/Pixal3D),
+[Comfy-Org/MoGe](https://huggingface.co/Comfy-Org/MoGe),
+[Comfy-Org/BiRefNet](https://huggingface.co/Comfy-Org/BiRefNet),
+[VAST-AI/TripoSplat](https://huggingface.co/VAST-AI/TripoSplat),
+[Comfy-Org/TRELLIS.2](https://huggingface.co/Comfy-Org/TRELLIS.2),
 [leejet/stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp/releases) (`master-829-0a565f2`),
 [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp/releases) (`b10679`),
 [xinntao/Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.2.5.0).
 
-**Фон и 3D - отдельным шагом.** Нужна портативная сборка `ComfyUI-Easy-Install`
-(внутри `python_embeded\python.exe` и `ComfyUI\main.py`), в репозиторий она не входит:
+### Фон и 3D - отдельным шагом
+
+Нужна портативная сборка `ComfyUI-Easy-Install` (внутри `python_embeded\python.exe` и
+`ComfyUI\main.py`), в репозиторий она не входит. Со `python_embeded` и `torch` это
+~14 ГБ - их не качает ни один `npm run download:*`.
 
 1. положить сборку в `comfy/ComfyUI-Easy-Install/` рядом с приложением **или**
    указать путь: `set HC_COMFY_ROOT=D:\ComfyUI-Easy-Install`;
-2. доставить ноды из `workflows/comfy/` (GGUF-загрузчик UNet, birefnet, Trellis2,
-   TripoSplat, MoGe, Pixal3D) - ComfyUI сам перечислит отсутствующие при первом запуске;
-3. положить модели в `ComfyUI/models/**`: `birefnet.safetensors`,
-   `pixal3d_int8_convrot.safetensors`, `trellis_2_shape_vae_bf16.safetensors`,
-   `trellis_2_texture_vae_bf16.safetensors`, `dino_v3_L_naf_fp32.safetensors`,
-   `moge_2_vitl_normal_fp16.safetensors`, `triposplat_fp16.safetensors`,
-   `triposplat_vae_decoder_fp16.safetensors`, `dino_v3_vit_h.safetensors`,
-   `flux2-vae.safetensors` (~13 ГБ).
+2. `npm run download:3d` - раскладывает 10 файлов прямо в `ComfyUI\models\**`
+   (13 ГБ). `npm run download:3d-all` добавляет бэкбон Trellis2 (+6.5 ГБ);
+3. доставить ноды из `workflows/comfy/` (GGUF-загрузчик UNet, birefnet, Trellis2,
+   TripoSplat, MoGe, Pixal3D) - ComfyUI сам перечислит отсутствующие при первом запуске.
+
+Раскладка внутри `ComfyUI\models\`: `diffusion_models\` (pixal3d, triposplat,
+trellis_2), `clip_vision\` (dino_v3), `vae\` (trellis_2, flux2, triposplat_vae_decoder),
+`geometry_estimation\` (moge_2), `background_removal\` (birefnet).
 
 Если эти же веса уже лежат в общем каталоге (например, их положил другой локальный
 инструмент), качать второй раз не нужно - достаточно `HC_COMFY_ROOT` и `HC_MODELS_ROOT`
